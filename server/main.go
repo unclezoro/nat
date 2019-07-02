@@ -17,15 +17,18 @@ var (
 	addresMux = sync.Mutex{}
 
 	seedAddr1 string
+	seedPort1 int
 	seedAddr2 string
+	seedPort2 int
 
 	localAddr string
 )
 
 func init() {
 	flag.StringVar(&seedAddr1, "seed1", "", "seedAddr1")
+	flag.IntVar(&seedPort1, "seed_port1", 0, "seed_port1")
 	flag.StringVar(&seedAddr2, "seed2", "", "seedAddr2")
-
+	flag.IntVar(&seedPort2, "seed_port2", 0, "seed_port2")
 	flag.StringVar(&localAddr, "local", "", "localAddr")
 
 }
@@ -46,10 +49,18 @@ func main() {
 		Control:   reuseport.Control,
 	}
 	if seedAddr1 != "" {
-		go clientPeerRoutine(d, seedAddr1)
+		tcpSeed1, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", seedAddr1, seedPort1))
+		if err != nil {
+			panic(err)
+		}
+		go clientPeerRoutine(d, *tcpSeed1)
 	}
 	if seedAddr2 != "" {
-		go clientPeerRoutine(d, seedAddr2)
+		tcpSeed2, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", seedAddr2, seedPort2))
+		if err != nil {
+			panic(err)
+		}
+		go clientPeerRoutine(d, *tcpSeed2)
 	}
 
 	for {
@@ -100,17 +111,24 @@ func main() {
 	}
 }
 
-func clientPeerRoutine(d net.Dialer, addr string) {
+func clientPeerRoutine(d net.Dialer, addr net.TCPAddr) {
 	var conn net.Conn
 	var err error
-	for i:=0;i<300;i++{
-		conn, err = d.Dial("tcp", addr)
-		if err == nil {
-			break
+	for i := 0; i < 300; i++ {
+		for j:=0;j< 10;j++{
+			tryAddr:= net.TCPAddr{
+				IP: addr.IP,
+				Port: addr.Port+j,
+			}
+			conn, err = d.Dial("tcp", tryAddr.String())
+			if err == nil {
+				break
+			}
+			fmt.Println("connect error", err)
+			time.Sleep(2 * time.Millisecond)
 		}
-		time.Sleep(100*time.Millisecond)
 	}
-	if err !=nil{
+	if err != nil {
 		panic(err)
 	}
 	ra := conn.RemoteAddr()
@@ -137,7 +155,7 @@ func clientPeerRoutine(d net.Dialer, addr string) {
 		if _, exist := address[tcpAddr.String()]; !exist {
 			fmt.Println("receive new address", tcpAddr.String())
 			address[tcpAddr.String()] = &tcpAddr
-			go clientPeerRoutine(d, tcpAddr.String())
+			go clientPeerRoutine(d, tcpAddr)
 		}
 		addresMux.Unlock()
 	}
