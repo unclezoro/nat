@@ -103,7 +103,7 @@ func main() {
 func clientPeerRoutine(d net.Dialer, addr string) {
 	var conn net.Conn
 	var err error
-	for i:=0;i<3;i++{
+	for i:=0;i<300;i++{
 		conn, err = d.Dial("tcp", addr)
 		if err == nil {
 			break
@@ -130,6 +130,7 @@ func clientPeerRoutine(d net.Dialer, addr string) {
 		tcpAddr := net.TCPAddr{}
 		err = json.Unmarshal(raw, &tcpAddr)
 		if err != nil {
+			fmt.Println(string(raw))
 			panic(err)
 		}
 		addresMux.Lock()
