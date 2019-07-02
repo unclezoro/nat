@@ -63,62 +63,70 @@ func main() {
 		go clientPeerRoutine(d, *tcpSeed2)
 	}
 
-	for {
-		rc, err := ll.Accept()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("accept remote addr is %v\n", rc.RemoteAddr())
-		go func(c net.Conn) {
-			ra := c.RemoteAddr()
-			if tcpAddr, ok := ra.(*net.TCPAddr); ok {
-				addresMux.Lock()
-				if _, exist := address[tcpAddr.String()]; exist {
-					addresMux.Unlock()
-					return
-				} else {
-					address[tcpAddr.String()] = tcpAddr
-					addresMux.Unlock()
-				}
-
+	go func(){
+		for {
+			rc, err := ll.Accept()
+			if err != nil {
+				panic(err)
 			}
-			tick := time.Tick(time.Second)
-			for range tick {
-				stop := func() bool {
+			fmt.Printf("accept remote addr is %v\n", rc.RemoteAddr())
+			go func(c net.Conn) {
+				ra := c.RemoteAddr()
+				if tcpAddr, ok := ra.(*net.TCPAddr); ok {
 					addresMux.Lock()
-					defer addresMux.Unlock()
-					for _, a := range address {
-						if a.String() != c.RemoteAddr().String() {
-							fmt.Println("send addr", "addr", a.String(), "to", c.RemoteAddr().String())
-							bz, err := json.Marshal(a)
-							if err != nil {
-								panic(err)
-							}
-							_, err = c.Write(bz)
-							if err != nil {
-								fmt.Println("write failed", err)
-								return true
+					if _, exist := address[tcpAddr.String()]; exist {
+						addresMux.Unlock()
+						return
+					} else {
+						address[tcpAddr.String()] = tcpAddr
+						addresMux.Unlock()
+					}
+
+				}
+				tick := time.Tick(time.Second)
+				for range tick {
+					stop := func() bool {
+						addresMux.Lock()
+						defer addresMux.Unlock()
+						for _, a := range address {
+							if a.String() != c.RemoteAddr().String() {
+								fmt.Println("send addr", "addr", a.String(), "to", c.RemoteAddr().String())
+								bz, err := json.Marshal(a)
+								if err != nil {
+									panic(err)
+								}
+								_, err = c.Write(bz)
+								if err != nil {
+									delete(address,c.RemoteAddr().String())
+									fmt.Println("write failed", err)
+									return true
+								}
 							}
 						}
+						return false
+					}()
+					if stop {
+						return
 					}
-					return false
-				}()
-				if stop {
-					return
 				}
-			}
-		}(rc)
+			}(rc)
+		}
+	}()
+
+	select {
+
 	}
+
 }
 
 func clientPeerRoutine(d net.Dialer, addr net.TCPAddr) {
 	var conn net.Conn
 	var err error
 	for i := 0; i < 300; i++ {
-		for j:=0;j< 10;j++{
-			tryAddr:= net.TCPAddr{
-				IP: addr.IP,
-				Port: addr.Port+j,
+		for j := 0; j < 10; j++ {
+			tryAddr := net.TCPAddr{
+				IP:   addr.IP,
+				Port: addr.Port + j,
 			}
 			conn, err = d.Dial("tcp", tryAddr.String())
 			if err == nil {
@@ -126,6 +134,9 @@ func clientPeerRoutine(d net.Dialer, addr net.TCPAddr) {
 			}
 			fmt.Println("connect error", err)
 			time.Sleep(2 * time.Millisecond)
+		}
+		if err==nil {
+			break
 		}
 	}
 	if err != nil {
