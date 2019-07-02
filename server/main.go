@@ -16,12 +16,16 @@ var (
 	address   = make(map[string]*net.TCPAddr)
 	addresMux = sync.Mutex{}
 
-	seedAddr  string
+	seedAddr1 string
+	seedAddr2 string
+
 	localAddr string
 )
 
 func init() {
-	flag.StringVar(&seedAddr, "seed", "", "seedAddr")
+	flag.StringVar(&seedAddr1, "seed1", "", "seedAddr1")
+	flag.StringVar(&seedAddr2, "seed2", "", "seedAddr2")
+
 	flag.StringVar(&localAddr, "local", "", "localAddr")
 
 }
@@ -41,8 +45,11 @@ func main() {
 		LocalAddr: ll.Addr(),
 		Control:   reuseport.Control,
 	}
-	if seedAddr != "" {
-		go clientPeerRoutine(d, seedAddr)
+	if seedAddr1 != "" {
+		go clientPeerRoutine(d, seedAddr1)
+	}
+	if seedAddr2 != "" {
+		go clientPeerRoutine(d, seedAddr2)
 	}
 
 	for {
@@ -96,11 +103,12 @@ func main() {
 func clientPeerRoutine(d net.Dialer, addr string) {
 	var conn net.Conn
 	var err error
-	for i:=0;i<10;i++{
+	for i:=0;i<3;i++{
 		conn, err = d.Dial("tcp", addr)
 		if err == nil {
 			break
 		}
+		time.Sleep(100*time.Millisecond)
 	}
 	if err !=nil{
 		panic(err)
