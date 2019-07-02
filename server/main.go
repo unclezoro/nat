@@ -66,11 +66,11 @@ func main() {
 			}
 			tick := time.Tick(time.Second)
 			for range tick {
-				func() {
+				stop := func() bool {
 					addresMux.Lock()
 					defer addresMux.Unlock()
 					for _, a := range address {
-						if a.String() != c.RemoteAddr().String(){
+						if a.String() != c.RemoteAddr().String() {
 							fmt.Println("send addr", "addr", a.String(), "to", c.RemoteAddr().String())
 							bz, err := json.Marshal(a)
 							if err != nil {
@@ -79,21 +79,30 @@ func main() {
 							_, err = c.Write(bz)
 							if err != nil {
 								fmt.Println("write failed", err)
-								return
+								return true
 							}
 						}
 					}
+					return false
 				}()
-
+				if stop {
+					return
+				}
 			}
 		}(rc)
 	}
 }
 
 func clientPeerRoutine(d net.Dialer, addr string) {
-
-	conn, err := d.Dial("tcp", addr)
-	if err != nil {
+	var conn net.Conn
+	var err error
+	for i:=0;i<10;i++{
+		conn, err = d.Dial("tcp", addr)
+		if err == nil {
+			break
+		}
+	}
+	if err !=nil{
 		panic(err)
 	}
 	ra := conn.RemoteAddr()
