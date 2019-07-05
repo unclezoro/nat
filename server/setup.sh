@@ -18,12 +18,12 @@ docker exec -t vm1 route add default gw  172.20.0.3
 docker exec -t nat1  sysctl -p
 docker exec -t nat1  iptables -A FORWARD -p tcp -j ACCEPT
 docker exec -t nat1  iptables -t nat -A POSTROUTING -o eth1 -j SNAT --to-source "172.22.0.2"
-docker exec -t nat1  iptables -t nat -A PREROUTING -i eth1  --dport 8080 -j DNAT --to-destination "172.20.0.2:8080"
+docker exec -t nat1  iptables -t nat -A PREROUTING -i eth1  -j DNAT --to-destination "172.20.0.2:8080"
 
 docker exec -t nat2  sysctl -p
 docker exec -t nat2  iptables -A FORWARD -p tcp -j ACCEPT
 docker exec -t nat2  iptables -t nat -A POSTROUTING -o eth1 -j SNAT --to-source "172.22.0.3"
-docker exec -t nat2  iptables -t nat -A PREROUTING -i eth1  --dport 8080 -j DNAT --to-destination "172.21.0.2:8080"
+docker exec -t nat2  iptables -t nat -A PREROUTING -i eth1  -j DNAT --to-destination "172.21.0.2:8080"
 
 sleep 2
 
